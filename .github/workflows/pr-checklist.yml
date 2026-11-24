@@ -1,0 +1,33 @@
+name: PR Checklist Gate
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all checklist boxes are checked
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const unchecked = (body.match(/- \[ \]/g) || []).length;
+            const checked = (body.match(/- \[x\]/gi) || []).length;
+
+            if (checked === 0 && unchecked === 0) {
+              core.setFailed('PR description is missing the required checklist template.');
+              return;
+            }
+
+            if (unchecked > 0) {
+              core.setFailed(`PR checklist incomplete: ${unchecked} unchecked item(s) remaining.`);
+              return;
+            }
+
+            core.info(`All ${checked} checklist items verified.`);
